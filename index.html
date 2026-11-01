@@ -281,11 +281,11 @@ function cfg(n) {
   return {
     size: Math.max(0.55, 1 - (n - 1) * 0.07),
     need: 5 + n,
-    maxSp: Math.min(4 + n * 2, 16),
-    spawnEvery: Math.max(0.55, 2.3 - n * 0.2),
-    spSpeed: Math.min(72 + n * 10, 165),
+    maxSp: Math.min(3 + n * 2, 15),
+    spawnEvery: Math.max(0.7, 2.8 - n * 0.2),
+    spSpeed: Math.min(60 + n * 9, 150),
     jumpers: n >= 3 ? 0.3 : 0,
-    bossHP: 6 + n * 2,
+    bossHP: 5 + n * 2,
     bossSpeed: Math.min(55 + n * 6, 110),
   };
 }
@@ -321,21 +321,19 @@ function floatText(text, x, y, col) { G.floats.push({ text, x, y, col, t: 0 }); 
 function swing() {
   const p = G.p, power = p.petals > 0 ? 1 : 0.4;
   if (p.petals > 0) { p.petals--; p.petalT = 0; }
-  p.swingCd = 0.32; p.swingT = 0.2; p.swingA = Math.atan2(p.fy, p.fx); SFX.swing();
+  p.swingCd = 0.2; p.swingT = 0.18; p.swingA = Math.atan2(p.fy, p.fx); SFX.swing();
   const a = p.swingA;
-  for (let i = 0; i < (power >= 1 ? 5 : 1); i++) {
-    const pa = a + rand(-.9, .9), v = rand(60, 160);
+  for (let i = 0; i < (power >= 1 ? 8 : 2); i++) {
+    const pa = a + rand(0, Math.PI * 2), v = rand(60, 180);
     G.parts.push({ x: p.x + Math.cos(pa) * 32, y: p.y + Math.sin(pa) * 32, vx: Math.cos(pa) * v, vy: Math.sin(pa) * v, life: rand(.7, 1.2), max: 1.2, col: 'petal', s: rand(3, 5), rot: rand(0, 6), vr: rand(-8, 8) });
   }
   const inArc = (x, y, r) => {
-    const dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy); if (d > 82 + r) return false;
-    let da = Math.atan2(dy, dx) - a; da = Math.atan2(Math.sin(da), Math.cos(da));
-    return Math.abs(da) < 1.15 || d < r + p.r + 6;
+    return Math.hypot(x - p.x, y - p.y) <= 104 + r;   // full 360° spin
   };
   let hit = false;
   for (const s of G.spiders) {
     if (s.falling || s.spawn < 1 || !inArc(s.x, s.y, s.r)) continue;
-    const d = Math.hypot(s.x - p.x, s.y - p.y) || 1, nx = (s.x - p.x) / d, ny = (s.y - p.y) / d, kb = 560 * power;
+    const d = Math.hypot(s.x - p.x, s.y - p.y) || 1, nx = (s.x - p.x) / d, ny = (s.y - p.y) / d, kb = 620 * power;
     s.vx = nx * kb; s.vy = ny * kb; s.stun = power >= 1 ? .8 : .2; s.knockT = .7; s.state = 'walk'; hit = true;
     burst(s.x, s.y, 6, 'spark', 120);
   }
@@ -362,7 +360,7 @@ function flash() {
   if (b && !b.dying && b.state !== 'descend' && Math.hypot(b.x - p.x, b.y - p.y) < 420) { b.stun = 1.8; b.state = 'stalk'; b.t = 0; floatText('stunned! hit it!', b.x, b.y - b.r - 18, FF); }
 }
 function hurtPlayer(x, y) {
-  const p = G.p; G.hp--; p.inv = 1.5;
+  const p = G.p; G.hp--; p.inv = 2.0;
   const d = Math.hypot(p.x - x, p.y - y) || 1; p.vx = (p.x - x) / d * 380; p.vy = (p.y - y) / d * 380;
   G.shake = 12; G.flash = .3; SFX.hurt(); rumble(.9, .6, 260); burst(p.x, p.y, 18, 'glow', 220); floatText('ouch!', p.x, p.y - 26, EYE);
   if (G.hp <= 0) gameOver();
@@ -411,7 +409,7 @@ function updateSpiders(dt) {
       if (s.knockT > 0) { s.falling = .001; const pts = 50 * G.level; G.score += pts; SFX.fall(); floatText('+' + pts, s.x, s.y - 14, PINK); continue; }
       clampE(s, 1.02);
     }
-    if (s.stun <= 0 && p.inv <= 0 && dist2(s.x, s.y, p.x, p.y) < (s.r + p.r - 2) ** 2) {
+    if (s.stun <= 0 && p.inv <= 0 && dist2(s.x, s.y, p.x, p.y) < (s.r + p.r - 5) ** 2) {
       hurtPlayer(s.x, s.y); if (state !== 'play') return; s.vx = -nx * 200; s.vy = -ny * 200; s.stun = .4;
     }
   }
@@ -456,15 +454,15 @@ function step(dt, inp) {
   p.swingCd -= dt; if (p.swingT > 0) p.swingT -= dt; p.inv -= dt; if (p.flashT > 0) p.flashT -= dt;
   if (inp.swing && p.swingCd <= 0) swing();
   if (inp.flash) flash();
-  if (p.petals < 6) { p.petalT += dt; if (p.petalT >= 1.3) { p.petalT = 0; p.petals++; } } else p.petalT = 0;
-  p.glow = Math.max(0, p.glow - 2.2 * dt);
+  if (p.petals < 6) { p.petalT += dt; if (p.petalT >= 0.8) { p.petalT = 0; p.petals++; } } else p.petalT = 0;
+  p.glow = Math.max(0, p.glow - 1.6 * dt);
   G.flashFx = Math.max(0, G.flashFx - dt); G.bossBanner = Math.max(0, G.bossBanner - dt);
 
   const maxSp = G.boss ? Math.ceil(c.maxSp / 2) : c.maxSp;
   G.spawnT -= dt;
   if (G.spawnT <= 0 && !G.bossDone) { G.spawnT = c.spawnEvery * rand(.7, 1.3); if (G.spiders.filter(s => !s.falling).length < maxSp) spawnSpider(); }
   G.dropT -= dt; if (G.dropT <= 0) { G.dropT = rand(1.2, 2.4); if (G.dewdrops.length < 3) spawnDrop(); }
-  G.pickT -= dt; if (G.pickT <= 0) { G.pickT = rand(14, 22); if (G.hp < 3 && G.pickups.length < 1) spawnPick(); }
+  G.pickT -= dt; if (G.pickT <= 0) { G.pickT = rand(10, 16); if (G.hp < 3 && G.pickups.length < 1) spawnPick(); }
 
   updateSpiders(dt); if (state !== 'play') return;
   if (G.boss) { updateBoss(dt); if (state !== 'play') return; }
@@ -654,10 +652,10 @@ function drawWorld() {
   const p = G.p, blink = p.inv > 0 && Math.floor(G.time * 14) % 2;
   if (!blink) {
     let fa;
-    if (p.swingT > 0) { const k = 1 - p.swingT / .2; fa = p.swingA - 1.2 + 2.4 * k; }
+    if (p.swingT > 0) { const k = 1 - p.swingT / .18; fa = p.swingA + Math.PI * 2 * k; }
     else fa = Math.atan2(p.fy, p.fx) + .9;
     drawFirefly(p.x, p.y, p.fx, p.fy, G.time);
-    drawFlower(p.x, p.y, fa, p.petals, 1.25);
+    drawFlower(p.x, p.y, fa, p.petals, p.swingT > 0 ? 1.6 : 1.25);
   }
   for (const q of G.parts) if (q.col === 'petal') {
     ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
@@ -676,8 +674,9 @@ function drawWorldGlow() {
     glow('white', bx, by, 7, .7);
   }
   if (p.swingT > 0) {
-    const k = 1 - p.swingT / .2; ctx.strokeStyle = PINK; ctx.lineWidth = 4; ctx.globalAlpha = .5 * (1 - k);
-    ctx.beginPath(); ctx.arc(p.x, p.y, 40, p.swingA - 1.2, p.swingA - 1.2 + 2.4 * k); ctx.stroke(); ctx.globalAlpha = 1;
+    const k = 1 - p.swingT / .18; ctx.strokeStyle = PINK; ctx.lineWidth = 6; ctx.globalAlpha = .55 * (1 - k * .6);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 52, p.swingA, p.swingA + Math.PI * 2 * k); ctx.stroke();
+    ctx.lineWidth = 2; ctx.globalAlpha = .25 * (1 - k); ctx.beginPath(); ctx.arc(p.x, p.y, 104, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
   }
   if (G.flashFx > 0) glow('ff', p.x, p.y, 420 * (1 - G.flashFx), G.flashFx);
   for (const s of G.spiders) drawSpiderEyes(s, false);
